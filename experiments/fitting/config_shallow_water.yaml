@@ -1,0 +1,103 @@
+seed: 0
+device: None                              # Set to 'cpu' or 'cuda' to override automatic device selection
+proj_name: sj-pdes-exp
+
+hydra:
+  run:
+    dir: outputs/${dataset.name}/${seed}-${nef.invariant_type}-${now:%Y-%m-%d-%H-%M-%S}/
+
+logging:
+  log_dir: ''                            # Use optuna's log directory if empty
+
+  log_every_n_steps: 50
+  visualize_every_n_steps: 5000
+
+  checkpoint_every_n_epochs: 50
+  keep_n_checkpoints: 1
+  checkpoint: True
+  debug: False
+
+# Dataset configuration
+dataset:
+  name: shallow_water_low_res
+  batch_size: 1
+  traj_len_train: 10
+  traj_len_out_horizon: 4
+  path: 'data/'
+  num_signals_train: 512
+  num_signals_test: 128
+  num_workers: 0
+  image_shape: -1
+
+# Neural field backbone configuration
+nef:
+  num_in: -1                              # Automatically derived from the dataset
+  num_out: -1                             # Automatically derived from the dataset
+
+  num_layers: 0
+  num_hidden: 128
+  num_heads: 2
+  condition_value_transform: True
+  condition_invariant_embedding: True
+
+  latent_dim: 32
+  num_latents: 8
+  gaussian_window: -1                          # Value is calculated from number of latents, if None gaussian window is not used, if -1 the value is set proportional to the number of latents.
+  optimize_gaussian_window: False              # If True, the gaussian window size is optimized during training
+  use_gaussian_window: True
+
+  embedding_type: rff                         # Choices, 'rff', 'polynomial', 'ffn'
+  embedding_freq_multiplier_invariant: 0.05     # For RFF the 1/std and for polynomial the degree
+  embedding_freq_multiplier_value: 0.2        # For RFF the 1/std and for polynomial the degree
+  invariant_type: latitude_periodic                       # Choices: 'rel_pos', 'norm_rel_pos', 'abs_pos', 'ponita', 'rel_pos_periodic', 'polar_periodic', 'latitude_periodic'
+
+node:
+  name: ponita
+  num_layers: 3
+  num_hidden: 256
+  widening_factor: 2
+  kernel_size: "global"
+  degree: 3
+  basis_dim: 128
+
+  # Sets the ode solver parameters
+  dt: 1
+  method: 'euler'
+
+# Training configuration
+training:
+  num_epochs: 1500
+  max_num_sampled_points: 4096
+
+  ode:
+    train_from_epoch: 500
+    train_until_epoch: 2000
+  nef:
+    train_from_epoch: 0
+    fit_on_num_steps: 4  # Number of steps on which to fit the neural field backbone
+    train_until_epoch: 500
+
+# Testing configuration
+test:
+  test_interval: 100
+  test_dp_interval: 9999
+  test_equiv_at_epoch: 20000
+
+# Meta learning configuration
+meta:
+  meta_sgd: True
+  num_inner_steps: 3
+
+  inner_learning_rate_p: 0.0
+  inner_learning_rate_a: 5.0
+  inner_learning_rate_window: 0.0
+  learning_rate_meta_sgd: 1e-4
+
+  noise_pos_inner_loop: 0.
+
+# Optimizer configuration
+optimizer:
+  name: adamw
+  learning_rate_enf: 1e-4
+  learning_rate_codes: 0.0
+  learning_rate_ode: 1e-3
